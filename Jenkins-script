@@ -1,0 +1,76 @@
+pipeline {
+    agent any
+
+    environment {
+        TF_VERSION = "1.9.6"
+        TF_BIN = "/usr/local/bin/terraform"
+    }
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                git branch: 'main', url: 'https://github.com/mahendra-k1/jenkins-tutorial'
+            }
+        }
+
+        stage('Install Terraform') {
+            steps {
+                sh '''
+                    echo "\033[1;34mInstalling Terraform ${TF_VERSION}...\033[0m"
+                    wget -q https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip
+                    unzip -o terraform_${TF_VERSION}_linux_amd64.zip -d /usr/local/bin/
+                    terraform version
+                '''
+            }
+        }
+
+        stage('Clean Terraform Cache') {
+            steps {
+                sh '''
+                    echo "\033[1;33mCleaning Terraform cache...\033[0m"
+                    rm -rf .terraform .terraform.lock.hcl
+                    mkdir -p $WORKSPACE/.terraform.d/plugin-cache
+                '''
+            }
+        }
+
+        stage('Initialize Terraform') {
+            steps {
+                sh '''
+                    echo "\033[1;34mInitializing Terraform...\033[0m"
+                    terraform init -upgrade
+                '''
+            }
+        }
+
+        stage('Validate Terraform') {
+            steps {
+                sh '''
+                    echo "\033[1;34mValidating Terraform files...\033[0m"
+                    if ! terraform validate; then
+                        echo "\033[1;31mValidation failed! Please check your .tf files.\033[0m"
+                        exit 1
+                    fi
+                '''
+            }
+        }
+
+        stage('Plan Terraform') {
+            steps {
+                sh '''
+                    echo "\033[1;34mPlanning Terraform changes...\033[0m"
+                    terraform plan
+                '''
+            }
+        }
+
+        stage('Apply Terraform') {
+            steps {
+                sh '''
+                    echo "\033[1;32mApplying Terraform changes...\033[0m"
+                    terraform apply -auto-approve
+                '''
+            }
+        }
+    }
+}
